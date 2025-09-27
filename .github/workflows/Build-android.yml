@@ -99,6 +99,14 @@ jobs:
         echo "NPM version:"
         npm --version
 
+    - name: Debug Platform Directory
+      run: |
+        cd MyApp
+        echo "Current directory structure:"
+        ls -la
+        echo "Platforms directory (if exists):"
+        ls -la platforms || echo "Platforms directory doesn't exist"
+        
     - name: Debug Platform Installation
       run: |
        cd MyApp
@@ -135,27 +143,20 @@ jobs:
     - name: Add Android Platform
       run: |
         cd MyApp
+        
         # Create platforms directory if it doesn't exist
         mkdir -p platforms
         
         # Try with a specific compatible version with detailed error output
-        echo "Trying Android platform 10.1.2..."
-        cordova platform add android@10.1.2 --verbose --fetch || {
-          echo "Failed with 10.1.2, trying 9.1.0..."
-          cordova platform add android@9.1.0 --verbose --fetch || {
-            echo "Failed with 9.1.0, trying latest version..."
-            cordova platform add android --verbose --fetch || {
-              echo "All platform add attempts failed. Debug info:"
-              npm list -g cordova
-              cordova --version
-              java -version
-              exit 1
-            }
-          }
-        }
+        echo "Trying Android platform 9.0.0..."
+        cordova platform add android@9.0.0 --verbose --fetch
         
         # Verify platform was added
         ls -la platforms/
+        if [ ! -d "platforms/android" ]; then
+        echo "ERROR: Android platform directory not created!"
+        exit 1
+        fi
         cordova platform ls
 
     - name: Build Debug APK
