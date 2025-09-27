@@ -61,7 +61,7 @@ jobs:
           echo '<html><body><h1>CCTV Cordova App</h1></body></html>' > www/index.html
         fi
         
-        # Create config.xml with your configuration
+        # Create config.xml with your configuration 
         cat > config.xml << 'EOL'
 <?xml version="1.0" encoding="utf-8"?>
 <widget id="com.example.cctvcordova" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
