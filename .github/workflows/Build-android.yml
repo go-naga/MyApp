@@ -79,7 +79,6 @@ jobs:
            key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
            restore-keys: ${{ runner.os }}-gradle-
 
-
         # Check platform was added
         cordova platform ls
 
@@ -94,9 +93,21 @@ jobs:
         cd platforms/android
         chmod +x gradlew
         ./gradlew assembleDebug --info
+        env:
+           CORDOVA_VERSION: 11
+           GRADLE_VERSION: 8.3
+           NODE_VERSION: 18
+
         
         # Check if APK was built
         find . -name "*.apk"
+    - name: Debug Info (on failure)
+      if: failure()
+      run: |
+           java -version
+           gradle --version
+           cordova --version
+           ls -la MyApp/platforms/android
 
     - name: Find and Upload APK
       run: |
