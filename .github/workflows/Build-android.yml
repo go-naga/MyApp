@@ -95,10 +95,10 @@ jobs:
         npm --version
 
     - name: Verify Android Platform
-    run: |
-      cd MyApp
-      ls -la platforms/android
-      ls -la platforms/android/app
+      run: |
+        cd MyApp
+        ls -la platforms/android
+        ls -la platforms/android/app
 
         # First check requirements
         cordova requirements || true
@@ -110,8 +110,8 @@ jobs:
         # Verify platform was added
         cordova platform ls
 
-   - name: 
-     run: |
+    - name: Configure Gradle Version for Cordova
+      run: |
         cd MyApp
         if [ -d "platforms/android" ]; then
           mkdir -p platforms/android/gradle/wrapper
