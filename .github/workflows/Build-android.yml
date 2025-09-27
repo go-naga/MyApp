@@ -61,7 +61,8 @@ jobs:
         echo '    <preference name="android-targetSdkVersion" value="33" />' >> config.xml
         echo '  </platform>' >> config.xml
         echo '</widget>' >> config.xml
-        
+        <preference name="GradleVersion" value="7.6" />
+
         # Show the created config.xml for debugging
         cat config.xml
 
@@ -88,6 +89,17 @@ jobs:
         echo "Trying Android platform 10.1.2..."
         cordova platform add android@10.1.2 --verbose
         
+        - name: Install Specific Gradle Version
+          run: |
+            wget https://services.gradle.org/distributions/gradle-7.6-bin.zip -P /tmp
+            unzip -d /opt /tmp/gradle-7.6-bin.zip
+            echo "export PATH=/opt/gradle-7.6/bin:$PATH" >> $GITHUB_ENV
+        - name: Configure Gradle Version for Cordova
+          run: |
+          cd MyApp
+            mkdir -p platforms/android/gradle/wrapper
+            echo "distributionUrl=https\\://services.gradle.org/distributions/gradle-7.6-bin.zip" > platforms/android/gradle/wrapper/gradle-wrapper.properties
+
         # Verify platform was added
         cordova platform ls
 
