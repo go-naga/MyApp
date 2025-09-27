@@ -27,12 +27,11 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '16'
-        
-     - name: Install Node.js and Cordova
-       run: |
-         npm install -g cordova@10.0.0  # Try an older Cordova version
-         ordova --version
 
+    - name: Install Node.js and Cordova
+      run: |
+        npm install -g cordova@10.0.0  # Try an older Cordova version
+        cordova --version
 
     - name: Install Cordova
       run: |
