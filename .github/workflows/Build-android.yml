@@ -67,15 +67,31 @@ jobs:
         # Build APK
         cordova build android --verbose
 
-    - name: Find and Upload APK
+    - name: Debug APK Location
       run: |
-        cd MyApp
-        find platforms -name "*.apk" -type f
+        echo "Listing all files in MyApp directory:"
+        find MyApp -type f | grep -i ".apk" || echo "No APK files found in MyApp directory"
+        
+        echo "Checking Android build output directory:"
+        ls -la MyApp/platforms/android/app/build/outputs/ || echo "Directory not found"
+        
+        echo "Checking for APK files in all directories:"
+        find . -name "*.apk" -type f || echo "No APK files found anywhere"
+        
+        echo "Creating output directory anyway:"
         mkdir -p apk-output
-        find platforms -name "*.apk" -type f -exec cp {} apk-output/ \;
+        
+        echo "Trying to find and copy any APK files:"
+        find . -name "*.apk" -type f -exec cp {} apk-output/ \; || echo "No APK files to copy"
+        
+        echo "Listing contents of apk-output directory:"
+        ls -la apk-output || echo "apk-output directory is empty or doesn't exist"
 
-    - name: Upload APK
+    - name: Upload Any Found Files
       uses: actions/upload-artifact@v4
       with:
-        name: android-apk
-        path: MyApp/apk-output
+        name: build-outputs
+        path: |
+          apk-output
+          MyApp/platforms/android/app/build/outputs/**/*
+        if-no-files-found: warn
