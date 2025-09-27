@@ -15,7 +15,7 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    - name: Set up JDK 8 for Cordova
+    - name: Set up JDK 8
       uses: actions/setup-java@v4
       with:
         distribution: temurin
@@ -29,50 +29,43 @@ jobs:
     - name: Install Cordova
       run: npm install -g cordova@11
 
-    - name: Create Cordova project if it doesn't exist
-      run: |
-        # Check if cordova project exists
-        if [ ! -f "config.xml" ]; then
-          echo "Creating new Cordova project"
-          cordova create MyApp com.example.myapp MyApp
-          cd MyApp
-        else
-          echo "Cordova project already exists"
-        fi
-
     - name: Setup Android SDK
       run: |
         mkdir -p $ANDROID_SDK_ROOT
         cd $ANDROID_SDK_ROOT
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
-        unzip cmdline.zip -d cmdline-tools
+        unzip cmdline.zip
+        # Fix directory structure - cmdline tools expect to be in cmdline-tools/latest/
         mkdir -p cmdline-tools/latest
-        mv cmdline-tools/* cmdline-tools/latest/ || true
-        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_SDK_ROOT} "platform-tools" "platforms;android-33" "build-tools;33.0.2" "cmdline-tools;latest"
-        export PATH=$PATH:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+        mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+        # Remove the now empty cmdline-tools directory that was extracted
+        rm -rf cmdline-tools/cmdline-tools
+        # Set PATH and accept licenses
+        export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_SDK_ROOT} "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+    - name: Initialize Cordova project
+      run: |
+        # Check if we're already in a Cordova project
+        if [ ! -f "config.xml" ]; then
+          echo "Creating new Cordova project"
+          cordova create . com.example.myapp MyApp
+        else
+          echo "Cordova project already exists"
+        fi
 
     - name: Add Android platform
       run: |
-        # Navigate to the Cordova project directory
-        if [ -d "MyApp" ]; then
-          cd MyApp
-        fi
         cordova platform add android@12.0.0
 
     - name: Build APK
       run: |
-        # Navigate to the Cordova project directory
-        if [ -d "MyApp" ]; then
-          cd MyApp
-        fi
-        cordova build android --release || cordova build android
+        cordova build android --debug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: android-apk
         path: |
-          MyApp/platforms/android/app/build/outputs/apk/debug/*.apk
-          MyApp/platforms/android/app/build/outputs/apk/release/*.apk
           platforms/android/app/build/outputs/apk/debug/*.apk
           platforms/android/app/build/outputs/apk/release/*.apk
