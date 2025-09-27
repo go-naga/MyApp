@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CCTV App — Full Cordova</title>
+  <style>
+    :root{--bg:#071226;--muted:#9fb0c8}
+    html,body{height:100%;margin:0;font-family:system-ui,Arial;background:linear-gradient(180deg,#071226,#031224);color:#e6eef6}
+    header{padding:12px;background:#082033;display:flex;justify-content:space-between;align-items:center}
+    header h1{margin:0;font-size:16px}
+    .layout{display:flex;gap:12px;padding:12px}
+    .viewer{flex:1;background:#000;border-radius:8px;min-height:420px;position:relative;overflow:hidden}
+    video{width:100%;height:100%;object-fit:contain;background:#000}
+    canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}
+    .panel{width:380px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:12px;border-radius:8px}
+    .group{margin-bottom:12px}
+    button,input,select{padding:8px;border-radius:8px;border:none;background:#0f1724;color:#e6eef6;cursor:pointer}
+    button:disabled{opacity:0.45;cursor:not-allowed}
+    input[type=file]{padding:6px}
+    .muted{color:var(--muted);font-size:13px}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
+    .meta{font-size:13px;color:var(--muted);margin-top:8px}
+    .small{font-size:12px;padding:6px}
+    .footer{padding:10px;font-size:13px;color:var(--muted)}
+    pre{background:#011;padding:8px;border-radius:6px;overflow:auto;height:120px;color:#d9eef6}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CCTV App — Full Cordova</h1>
+    <div class="muted">Offline-ready (Cordova) • Permissions handled safely</div>
+  </header>
+
+  <div class="layout">
+    <div class="viewer" aria-live="polite">
+      <video id="video" playsinline autoplay muted></video>
+      <canvas id="overlay"></canvas>
+    </div>
+
+    <aside class="panel">
+      <div class="group">
+        <label>Permission & Stream</label>
+        <div class="row">
+          <button id="btnRequest">Enable Camera</button>
+          <button id="btnStart" disabled>Start Stream</button>
+          <button id="btnStop" disabled>Stop Stream</button>
+        </div>
+        <div class="meta">Flow: Request → Start. On Cordova APK permissions are native.</div>
+      </div>
+
+      <div class="group">
+        <label>Playback controls</label>
+        <div class="row">
+          <button id="btnPlay" class="small">Play</button>
+          <button id="btnPause" class="small">Pause</button>
+          <button id="btnReplay" class="small">Replay</button>
+          <button id="btnScreenshot" class="small" disabled>Screenshot</button>
+          <button id="btnRecord" class="small" disabled>Start Rec</button>
+          <button id="btnStopRec" class="small" disabled>Stop Rec</button>
+        </div>
+        <div style="margin-top:8px">
+          <label>Speed 0.1x — 20x <span id="speedVal">1x</span></label>
+          <input id="speed" type="range" min="0.1" max="20" step="0.1" value="1" />
+        </div>
+        <div style="margin-top:8px">
+          <label>Zoom 0.1x — 50x</label>
+          <input id="zoom" type="range" min="0.1" max="50" step="0.1" value="1" />
+          <div class="row" style="margin-top:6px">
+            <button id="btnZoomReset" class="small">Reset Zoom</button>
+            <button id="btnMirrorX" class="small">Mirror X</button>
+            <button id="btnMirrorY" class="small">Mirror Y</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <label>PTZ Simulation</label>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="row"><button id="ptzUp">▲</button></div>
+          <div class="row"><button id="ptzLeft">◀</button><button id="ptzCenter">●</button><button id="ptzRight">▶</button></div>
+          <div class="row"><button id="ptzDown">▼</button></div>
+        </div>
+        <div class="muted">Note: real PTZ requires ONVIF/vendor API. This is CSS simulation.</div>
+      </div>
+
+      <div class="group">
+        <label>Connectivity</label>
+        <div class="row">
+          <button id="btnScanBT">Scan Bluetooth</button>
+          <button id="btnScanWiFi">Scan Wi-Fi (native)</button>
+        </div>
+        <div class="muted">Web Bluetooth available in some WebViews; Wi-Fi requires native plugin.</div>
+      </div>
+
+      <div class="group">
+        <label>Fallback & AI</label>
+        <input id="fileInput" type="file" accept="video/*" />
+        <div class="row" style="margin-top:8px">
+          <button id="btnLoadFile">Load File</button>
+          <button id="btnStartAI" disabled>Start AI</button>
+          <button id="btnStopAI" disabled>Stop AI</button>
+        </div>
+        <div class="muted">For offline AI: place tf.min.js & coco-ssd.min.js in <code>www/vendor/</code> and model artifacts in <code>www/model/</code>.</div>
+      </div>
+
+      <div class="group">
+        <label>Debug & Storage</label>
+        <div id="status" class="muted">Status: idle</div>
+        <pre id="log">Ready.</pre>
+      </div>
+    </aside>
+  </div>
+
+  <div class="footer muted">Tip: If you run into "permission denied" test via browser, host on https:// or use Cordova APK. For full offline AI download vendor files and model artifacts — see bundling instructions.</div>
+
+<script>
+/*
+  Full feature script:
+  - explicit permission flow (no auto getUserMedia)
+  - playback speed control (0.1x-20x)
+  - zoom (0.1x-50x) + mirror X/Y
+  - PTZ CSS simulation
+  - screenshot & recording using MediaRecorder
+  - Bluetooth placeholder + cordova-plugin-bluetoothle support
+  - WiFi placeholder (cordova-plugin-hotspot)
+  - AI loader: tries local vendor/ first then CDN; supports offline model artifacts if placed in www/model/
+*/
+
+const $ = id => document.getElementById(id);
+const logEl = $('log'), statusEl = $('status');
+function log(...a){ logEl.textContent += "\\n" + a.join(' '); logEl.scrollTop = logEl.scrollHeight; }
+function setStatus(s){ statusEl.textContent = 'Status: ' + s; log(s); }
+
+const video = $('video'), overlay = $('overlay');
+const btnRequest = $('btnRequest'), btnStart = $('btnStart'), btnStop = $('btnStop');
+const btnPlay = $('btnPlay'), btnPause = $('btnPause'), btnReplay = $('btnReplay');
+const btnScreenshot = $('btnScreenshot'), btnRecord = $('btnRecord'), btnStopRec = $('btnStopRec');
+const speedEl = $('speed'), speedVal = $('speedVal');
+const zoomEl = $('zoom'), btnZoomReset = $('btnZoomReset'), btnMirrorX = $('btnMirrorX'), btnMirrorY = $('btnMirrorY');
+const ptzUp = $('ptzUp'), ptzDown = $('ptzDown'), ptzLeft = $('ptzLeft'), ptzRight = $('ptzRight'), ptzCenter = $('ptzCenter');
+const btnScanBT = $('btnScanBT'), btnScanWiFi = $('btnScanWiFi');
+const fileInput = $('fileInput'), btnLoadFile = $('btnLoadFile');
+const btnStartAI = $('btnStartAI'), btnStopAI = $('btnStopAI');
+
+let mediaStream = null;
+let mediaRecorder = null, recChunks = [];
+let isMirroredX=false, isMirroredY=false, currentZoom=1;
+let panX=0, panY=0;
+
+// overlay canvas sizing
+function resizeOverlay(){ overlay.width = video.clientWidth; overlay.height = video.clientHeight; }
+window.addEventListener('resize', resizeOverlay);
+video.addEventListener('loadedmetadata', resizeOverlay);
+
+// Permission flow
+btnRequest.addEventListener('click', async ()=>{
+  setStatus('Requesting permissions...');
+  // guard: do not call in file://
+  if(location.protocol === 'file:'){ setStatus('Blocked: file:// — use Cordova APK or serve via http(s)'); alert('Jalankan lewat APK atau gunakan server lokal (http://localhost)'); return; }
+  if(!window.isSecureContext && location.hostname !== 'localhost'){ setStatus('Blocked: insecure. Use https or localhost'); alert('Gunakan https atau jalankan di localhost/cordova'); return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ setStatus('MediaDevices API not available'); return; }
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' }, audio: true });
+    mediaStream = s;
+    setStatus('Permissions granted. Click Start Stream to attach.');
+    btnStart.disabled = false; btnStop.disabled = false; btnScreenshot.disabled = false; btnRecord.disabled = false; btnStartAI.disabled=false;
+    // pre-enumerate device labels if available
+    try{ await navigator.mediaDevices.enumerateDevices(); }catch(e){}
+  }catch(err){
+    console.error('getUserMedia err', err);
+    if(err && (err.name==='NotAllowedError' || err.name==='PermissionDeniedError')){
+      setStatus('Permission denied. Re-enable in app/site settings or use APK.');
+      alert('Permission denied. If in browser, open site settings (padlock) and allow Camera/Microphone, then reload. If running file:// use APK or local server.');
+    } else if(err && (err.name==='NotFoundError' || err.name==='DevicesNotFoundError')){
+      setStatus('No camera or microphone found');
+    } else {
+      setStatus('getUserMedia error: ' + (err && err.message));
+    }
+  }
+});
+
+btnStart.addEventListener('click', ()=>{
+  if(!mediaStream){ setStatus('No stream — request permissions or load file'); return; }
+  video.srcObject = mediaStream;
+  video.muted = true; video.play().catch(()=>{});
+  setStatus('Streaming (muted)');
+});
+
+btnStop.addEventListener('click', ()=>{
+  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+  video.pause(); video.srcObject = null; setStatus('Stream stopped');
+});
+
+// Playback
+btnPlay.addEventListener('click', ()=>{ video.play().catch(()=>setStatus('Play blocked until gesture')); });
+btnPause.addEventListener('click', ()=>{ video.pause(); });
+btnReplay.addEventListener('click', ()=>{ try{ video.currentTime = 0; video.play(); }catch(e){} });
+
+// Speed
+speedEl.addEventListener('input', ()=>{ const v = parseFloat(speedEl.value); video.playbackRate = v; speedVal.textContent = v + 'x'; });
+
+// Zoom & mirror
+function updateTransform(){
+  const sx = isMirroredX ? -1 : 1, sy = isMirroredY? -1:1;
+  video.style.transform = `scale(${sx*currentZoom},${sy*currentZoom})`;
+}
+zoomEl.addEventListener('input', ()=>{ currentZoom = parseFloat(zoomEl.value); updateTransform(); });
+btnZoomReset.addEventListener('click', ()=>{ currentZoom=1; zoomEl.value=1; updateTransform(); });
+btnMirrorX.addEventListener('click', ()=>{ isMirroredX = !isMirroredX; updateTransform(); });
+btnMirrorY.addEventListener('click', ()=>{ isMirroredY = !isMirroredY; updateTransform(); });
+
+// PTZ simulation
+function applyPan(){ video.style.objectPosition = `${50 - panX}% ${50 - panY}%`; }
+ptzUp.addEventListener('click', ()=>{ panY = Math.min(panY + 5, 45); applyPan(); });
+ptzDown.addEventListener('click', ()=>{ panY = Math.max(panY - 5, -45); applyPan(); });
+ptzLeft.addEventListener('click', ()=>{ panX = Math.max(panX - 5, -45); applyPan(); });
+ptzRight.addEventListener('click', ()=>{ panX = Math.min(panX + 5, 45); applyPan(); });
+ptzCenter.addEventListener('click', ()=>{ panX=0; panY=0; applyPan(); });
+
+// Screenshot
+btnScreenshot.addEventListener('click', ()=>{
+  if(!video.videoWidth){ alert('Video belum aktif'); return; }
+  const c = document.createElement('canvas'); c.width = video.videoWidth; c.height = video.videoHeight;
+  const ctx = c.getContext('2d'); ctx.save();
+  // take transform into account: if mirrored/zoomed - apply center transform
+  ctx.translate(c.width/2, c.height/2);
+  const sx = isMirroredX ? -1 : 1, sy = isMirroredY ? -1 : 1;
+  ctx.scale(sx*currentZoom, sy*currentZoom);
+  ctx.drawImage(video, -c.width/2, -c.height/2, c.width, c.height);
+  ctx.restore();
+  c.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `screenshot_${Date.now()}.png`; a.click();
+    try{ URL.revokeObjectURL(url); }catch(e){}
+  }, 'image/png');
+});
+
+// Recording
+btnRecord.addEventListener('click', ()=>{
+  const s = mediaStream || (video.captureStream ? video.captureStream() : null);
+  if(!s){ alert('Tidak ada stream untuk direkam.'); return; }
+  try{ mediaRecorder = new MediaRecorder(s); }catch(e){ alert('MediaRecorder not supported or failed: '+(e&&e.message)); return; }
+  recChunks = [];
+  mediaRecorder.ondataavailable = ev => { if(ev.data && ev.data.size) recChunks.push(ev.data); };
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recChunks, { type:'video/webm' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `record_${Date.now()}.webm`; a.click();
+    try{ URL.revokeObjectURL(url); }catch(e){}
+    setStatus('Recording saved');
+  };
+  mediaRecorder.start(); setStatus('Recording...'); btnStopRec.disabled = false;
+});
+btnStopRec.addEventListener('click', ()=>{ if(mediaRecorder && mediaRecorder.state==='recording'){ mediaRecorder.stop(); btnStopRec.disabled=true; } });
+
+// Bluetooth & WiFi (placeholders)
+btnScanBT.addEventListener('click', async ()=>{
+  setStatus('Bluetooth scan...');
+  if(navigator.bluetooth && !window.cordova){
+    try{ const dev = await navigator.bluetooth.requestDevice({acceptAllDevices:true}); setStatus('BT selected: '+ (dev.name || dev.id)); log('BT', dev); }
+    catch(e){ setStatus('Bluetooth error: '+(e&&e.message)); }
+    return;
+  }
+  if(window.cordova && window.bluetoothle){
+    try{ bluetoothle.startScan(r => { if(r.status==='scanResult') log('BT scan', r); }, err => { log('BT err', err); setStatus('BT error'); }, {services:[]}); setStatus('Started BT scan (cordova)'); }
+    catch(e){ log('BT plugin err', e); setStatus('BT plugin error'); }
+    return;
+  }
+  setStatus('Bluetooth not available');
+});
+
+btnScanWiFi.addEventListener('click', ()=>{
+  if(window.cordova && window.hotspot){
+    try{ hotspot.listWifi(false, data => { log('WiFi list', data); setStatus('WiFi list returned: '+(data.length||0)); }, err => { log('hotspot err', err); setStatus('WiFi scan failed'); }); }
+    catch(e){ log('hotspot plugin error', e); setStatus('WiFi plugin error'); }
+  } else { setStatus('Wi-Fi scan only in native Cordova plugin (hotspot)'); }
+});
+
+// File fallback
+btnLoadFile.addEventListener('click', ()=>{
+  const f = fileInput.files[0]; if(!f){ alert('Pilih file terlebih dahulu'); return; }
+  const url = URL.createObjectURL(f); video.srcObject = null; video.src = url; video.muted = false;
+  video.play().then(()=>{ setStatus('Playing file: '+f.name); }).catch(()=>{ setStatus('File loaded (user gesture may be required)'); });
+});
+
+// AI loader & loop (tries local vendor/ then CDN)
+let aiModel = null, aiActive=false;
+function loadScript(url,timeout=15000){
+  return new Promise((resolve,reject)=>{
+    const s = document.createElement('script'); s.src = url; s.async=true;
+    let done=false; const t = setTimeout(()=>{ if(done) return; done=true; s.onload=s.onerror=null; reject(new Error('timeout')); }, timeout);
+    s.onload = ()=>{ if(done) return; done=true; clearTimeout(t); resolve(); };
+    s.onerror = ()=>{ if(done) return; done=true; clearTimeout(t); reject(new Error('failed to load '+url)); };
+    document.head.appendChild(s);
+  });
+}
+async function ensureAIModules(){
+  if(window.cocoSsd && aiModel) return true;
+  try{
+    // try local vendor first (for offline APK)
+    try{
+      await loadScript('vendor/tf.min.js',5000);
+      await loadScript('vendor/coco-ssd.min.js',5000);
+      log('Loaded local TF & coco-ssd');
+    }catch(e){
+      log('local AI libs not found', e);
+      // fallback to CDN
+      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js');
+      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd');
+      log('Loaded AI libs from CDN');
+    }
+    if(window.cocoSsd && typeof window.cocoSsd.load === 'function'){
+      // option: if you placed model artifacts in /model/ update load() with {modelUrl: 'model/model.json'}
+      aiModel = await window.cocoSsd.load();
+      log('coco-ssd loaded');
+      return true;
+    } else throw new Error('cocoSsd not available');
+  }catch(err){
+    console.error('AI load failed', err); setStatus('AI load failed: '+(err&&err.message)); return false;
+  }
+}
+async function aiLoop(){
+  if(!aiActive || !aiModel) return;
+  try{
+    overlay.width = video.videoWidth; overlay.height = video.videoHeight; overlay.getContext('2d').clearRect(0,0,overlay.width,overlay.height);
+    const preds = await aiModel.detect(video);
+    const ctx = overlay.getContext('2d');
+    preds.forEach(p=>{
+      ctx.strokeStyle = 'lime'; ctx.lineWidth = 2; ctx.strokeRect(p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]);
+      ctx.fillStyle = 'lime'; ctx.font = '14px sans-serif'; ctx.fillText(`${p.class} ${Math.round(p.score*100)}%`, p.bbox[0], Math.max(12, p.bbox[1]-6));
+    });
+  }catch(e){ console.error('AI detection error',e); setStatus('AI runtime error'); aiActive=false; btnStopAI.disabled=true; btnStartAI.disabled=false; }
+  if(aiActive) requestAnimationFrame(aiLoop);
+}
+btnStartAI.addEventListener('click', async ()=>{
+  setStatus('Preparing AI...');
+  const ok = await ensureAIModules();
+  if(!ok){ setStatus('AI not available'); return; }
+  if(!video.srcObject && !video.src){ setStatus('Start stream or load file to run AI'); return; }
+  aiActive = true; btnStartAI.disabled=true; btnStopAI.disabled=false; aiLoop(); setStatus('AI active');
+});
+btnStopAI.addEventListener('click', ()=>{ aiActive=false; btnStopAI.disabled=true; btnStartAI.disabled=false; overlay.getContext('2d').clearRect(0,0,overlay.width,overlay.height); setStatus('AI stopped'); });
+
+// Cordova deviceready hooks (grant runtime perms if plugin present)
+if(window.cordova){
+  document.addEventListener('deviceready', ()=>{
+    log('Cordova deviceready');
+    setStatus('Cordova ready');
+    // Request runtime permissions on Android (example)
+    if(cordova.plugins && cordova.plugins.permissions){
+      const permissions = cordova.plugins.permissions;
+      permissions.requestPermissions([permissions.CAMERA, permissions.RECORD_AUDIO], status => { log('perm status', status); }, err => { log('perm err', err); });
+    }
+  }, false);
+} else {
+  log('Not running in Cordova; using browser fallback');
+}
+
+// expose for debug
+window.__cctv = { setStatus, log, ensureAIModules };
+
+setStatus('Ready — press Enable Camera or load a file.');
+</script>
+</body>
+</html>
