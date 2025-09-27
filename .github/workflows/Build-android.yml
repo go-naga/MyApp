@@ -38,6 +38,11 @@ jobs:
         yes | sdkmanager --licenses || true
         sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
 
+    - name: Build Debug APK with direct Gradle command
+      run: |
+       cd MyApp/platforms/android
+       ./gradlew assembleDebug --info
+
     - name: Install Specific Gradle Version
       run: |
         wget https://services.gradle.org/distributions/gradle-7.6-bin.zip -P /tmp
@@ -89,9 +94,12 @@ jobs:
         echo "NPM version:"
         npm --version
 
-    - name: Add Android Platform
-      run: |
-        cd MyApp
+    - name: Verify Android Platform
+    run: |
+      cd MyApp
+      ls -la platforms/android
+      ls -la platforms/android/app
+
         # First check requirements
         cordova requirements || true
         
@@ -102,8 +110,8 @@ jobs:
         # Verify platform was added
         cordova platform ls
 
-    - name: Configure Gradle Version for Cordova
-      run: |
+   - name: 
+     run: |
         cd MyApp
         if [ -d "platforms/android" ]; then
           mkdir -p platforms/android/gradle/wrapper
@@ -118,12 +126,18 @@ jobs:
     - name: Build Debug APK
       run: |
         cd MyApp
-        # Build using Cordova
-        cordova build android --debug --verbose
+        cordova build android --debug --verbose --stacktrace
+        
+        # If that fails, try direct Gradle build
+        if [ $?-ne0 ]; then
+          echo "Cordova build failed, trying direct Gradle build..."
+          cd platforms/android
+          ./gradlew assembleDebug --info --stacktrace
+        fi
         
         # Check if APK was built
         find . -name "*.apk"
-
+      
     - name: Find and Upload APK
       run: |
         mkdir -p apk-files
