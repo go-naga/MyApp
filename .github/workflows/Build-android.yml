@@ -100,7 +100,7 @@ jobs:
         npm --version
 
     - name: Debug Platform Installation
-    run: |
+      run: |
        cd MyApp
        echo "Current directory structure:"
        ls -la
@@ -143,20 +143,20 @@ jobs:
         cordova platform add android@10.1.2 --verbose --fetch || {
           echo "Failed with 10.1.2, trying 9.1.0..."
           cordova platform add android@9.1.0 --verbose --fetch || {
-          echo "Failed with 9.1.0, trying latest version..."
-          cordova platform add android --verbose --fetch || {
-            echo "All platform add attempts failed. Debug info:"
-            npm list -g cordova
-            cordova --version
-            java -version
-          exit 1
+            echo "Failed with 9.1.0, trying latest version..."
+            cordova platform add android --verbose --fetch || {
+              echo "All platform add attempts failed. Debug info:"
+              npm list -g cordova
+              cordova --version
+              java -version
+              exit 1
             }
-           }
-         }
-         
-         # Verify platform was added
-         ls -la platforms/
-         cordova platform ls
+          }
+        }
+        
+        # Verify platform was added
+        ls -la platforms/
+        cordova platform ls
 
     - name: Build Debug APK
       run: |
