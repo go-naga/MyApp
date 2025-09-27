@@ -28,8 +28,14 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Install Cordova
-      run: npm install -g cordova@11
+    - name: Install Cordova and Gradle
+      run: |
+        npm install -g cordova@11
+        # Install specific Gradle version
+        wget https://services.gradle.org/distributions/gradle-8.3-bin.zip -P /tmp
+        unzip -d /opt /tmp/gradle-8.3-bin.zip
+        export PATH=$PATH:/opt/gradle-8.3/bin
+        gradle --version
 
     - name: Create Cordova Project
       run: |
@@ -40,6 +46,9 @@ jobs:
         # Copy www files if they exist
         if [ -d "../www" ]; then
           cp -r ../www/* www/ || true
+        else
+          # Create a basic HTML file if no www content exists
+          echo '<html><body><h1>CCTV Cordova App</h1></body></html>' > www/index.html
         fi
         
         # Create config.xml with your configuration
@@ -65,35 +74,38 @@ jobs:
         # Check platform was added
         cordova platform ls
 
-    - name: Check Directory Structure
+    - name: Build Debug APK with Gradle
       run: |
         cd MyApp
-        echo "MyApp directory structure:"
-        ls -la
-        
-        echo "Platforms directory:"
-        ls -la platforms || echo "Platforms directory not found"
-        
-        echo "Android directory:"
-        ls -la platforms/android || echo "Android directory not found"
-
-    - name: Build Debug APK
-      run: |
-        cd MyApp
-        # Force Gradle version
+        # Set Gradle version
         mkdir -p platforms/android/gradle/wrapper
         echo "distributionUrl=https\\://services.gradle.org/distributions/gradle-8.3-all.zip" > platforms/android/gradle/wrapper/gradle-wrapper.properties
         
-        # Build debug APK only
-        cordova build android --debug --verbose
+        # Build directly with Gradle to have more control
+        cd platforms/android
+        chmod +x gradlew
+        ./gradlew assembleDebug --info
         
-        # Check build results
-        echo "Build outputs:"
-        find platforms -type d -name "build" | xargs ls -la
+        # Check if APK was built
+        find . -name "*.apk"
 
-    - name: Upload Project Structure
+    - name: Find and Upload APK
+      run: |
+        mkdir -p apk-files
+        find MyApp -name "*.apk" -type f -exec cp {} apk-files/ \;
+        echo "APK files found:"
+        ls -la apk-files || echo "No APK files found"
+
+    - name: Upload APK Files
       uses: actions/upload-artifact@v4
       with:
-        name: project-structure
-        path: MyApp
+        name: android-apk
+        path: apk-files
+        if-no-files-found: warn
+        
+    - name: Upload Build Outputs
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-outputs
+        path: MyApp/platforms/android/app/build/outputs
         if-no-files-found: warn
