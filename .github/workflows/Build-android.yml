@@ -1,24 +1,4 @@
-Skip to content
-Navigation Menu
-go-naga
-MyApp
-
-Code
-Issues
-Pull requests
-Actions
-Projects
-Wiki
-Security
-Insights
-Settings
-Build Cordova Android
-Update Build-android.yml #4
-Jobs
-Run details
-Workflow file for this run
-.github/workflows/Build-android.yml at d2c8018
-name: Build Cordova Android
+name:  Build Cordova Android
 
 on:
   push:
