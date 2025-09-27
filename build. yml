@@ -26,59 +26,74 @@ jobs:
     - name: Install Node.js 18
       uses: actions/setup-node@v4
       with:
-        node-version: '18'  # Using Node.js 18 for better compatibility
+        node-version: '18'
 
     - name: Install Cordova
-      run: npm install -g cordova@11.0.0  # Specify exact version
+      run: npm install -g cordova@11
 
-    - name: Create and Build Cordova Project
+    - name: Create Cordova Project
       run: |
-        # Create project directory
-        mkdir -p MyApp
+        # Create Cordova project
+        cordova create MyApp com.example.cctvcordova "CCTV Cordova Offline"
         cd MyApp
         
-        # Initialize npm and install cordova locally
-        npm init -y
-        npm install cordova@11.0.0 --save-dev
-        
-        # Create basic www structure
-        mkdir -p www
-        echo '<html><body><h1>CCTV Cordova Offline</h1></body></html>' > www/index.html
-        
-        # Create config.xml manually
-        cat > config.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<widget id="com.example.cctvcordova" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
-  <name>CCTV Cordova Offline</name>
-  <description>Offline CCTV App dengan TensorFlow.js &amp; COCO-SSD</description>
-  <author email="you@example.com">Dev</author>
-  <content src="index.html" />
-  <access origin="*" />
-  <allow-navigation href="*" />
-  <platform name="android">
-    <preference name="android-minSdkVersion" value="23" />
-    <preference name="android-targetSdkVersion" value="33" />
-  </platform>
-</widget>
-EOF
-        
-        # Copy www files from repository if they exist
+        # Copy www files if they exist
         if [ -d "../www" ]; then
           cp -r ../www/* www/ || true
         fi
         
-        # Add Android platform using local cordova
-        npx cordova platform add android@12.0.0
+        # Create config.xml with your configuration
+        echo '<?xml version="1.0" encoding="utf-8"?>' > config.xml
+        echo '<widget id="com.example.cctvcordova" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">' >> config.xml
+        echo '  <name>CCTV Cordova Offline</name>' >> config.xml
+        echo '  <description>Offline CCTV App dengan TensorFlow.js & COCO-SSD</description>' >> config.xml
+        echo '  <author email="you@example.com">Dev</author>' >> config.xml
+        echo '  <content src="index.html" />' >> config.xml
+        echo '  <access origin="*" />' >> config.xml
+        echo '  <allow-navigation href="*" />' >> config.xml
+        echo '  <platform name="android">' >> config.xml
+        echo '    <preference name="android-minSdkVersion" value="23" />' >> config.xml
+        echo '    <preference name="android-targetSdkVersion" value="33" />' >> config.xml
+        echo '  </platform>' >> config.xml
+        echo '</widget>' >> config.xml
+
+    - name: Add Android Platform
+      run: |
+        cd MyApp
+        cordova platform add android@12.0.0
         
-        # Create gradle.properties to force Gradle version
+        # Check platform was added
+        cordova platform ls
+
+    - name: Check Directory Structure
+      run: |
+        cd MyApp
+        echo "MyApp directory structure:"
+        ls -la
+        
+        echo "Platforms directory:"
+        ls -la platforms || echo "Platforms directory not found"
+        
+        echo "Android directory:"
+        ls -la platforms/android || echo "Android directory not found"
+
+    - name: Build Debug APK
+      run: |
+        cd MyApp
+        # Force Gradle version
         mkdir -p platforms/android/gradle/wrapper
         echo "distributionUrl=https\\://services.gradle.org/distributions/gradle-8.3-all.zip" > platforms/android/gradle/wrapper/gradle-wrapper.properties
         
-        # Build APK
-        npx cordova build android --verbose
+        # Build debug APK only
+        cordova build android --debug --verbose
+        
+        # Check build results
+        echo "Build outputs:"
+        find platforms -type d -name "build" | xargs ls -la
 
-    - name: Upload APK
+    - name: Upload Project Structure
       uses: actions/upload-artifact@v4
       with:
-        name: android-apk
-        path: MyApp/platforms/android/app/build/outputs/apk/**/*.apk
+        name: project-structure
+        path: MyApp
+        if-no-files-found: warn
