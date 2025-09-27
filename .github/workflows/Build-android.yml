@@ -34,7 +34,7 @@ jobs:
     - name: Create and Build Cordova Project
       run: |
         # Create Cordova project
-        cordova create MyApp com.example.myapp "My App"
+        cordova create MyApp com.example.cctvcordova "CCTV Cordova Offline"
         cd MyApp
         
         # Copy www files if they exist
@@ -42,24 +42,20 @@ jobs:
           cp -r ../www/* www/ || true
         fi
         
-        # Create config.xml with minimum Android 6 (API level 23)
-        cat > config.xml << 'EOFCONFIG'
-<?xml version='1.0' encoding='utf-8'?>
-<widget id="com.example.myapp" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
-    <name>My App</name>
-    <description>Sample Apache Cordova App</description>
-    <author email="dev@cordova.apache.org" href="https://cordova.apache.org">
-        Apache Cordova Team
-    </author>
-    <content src="index.html" />
-    <allow-intent href="http://*/*" />
-    <allow-intent href="https://*/*" />
-    <platform name="android">
-        <preference name="android-minSdkVersion" value="23" />
-        <preference name="android-targetSdkVersion" value="33" />
-    </platform>
-</widget>
-EOFCONFIG
+        # Create config.xml with your configuration
+        echo '<?xml version="1.0" encoding="utf-8"?>' > config.xml
+        echo '<widget id="com.example.cctvcordova" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">' >> config.xml
+        echo '  <name>CCTV Cordova Offline</name>' >> config.xml
+        echo '  <description>Offline CCTV App dengan TensorFlow.js & COCO-SSD</description>' >> config.xml
+        echo '  <author email="you@example.com">Dev</author>' >> config.xml
+        echo '  <content src="index.html" />' >> config.xml
+        echo '  <access origin="*" />' >> config.xml
+        echo '  <allow-navigation href="*" />' >> config.xml
+        echo '  <platform name="android">' >> config.xml
+        echo '    <preference name="android-minSdkVersion" value="23" />' >> config.xml
+        echo '    <preference name="android-targetSdkVersion" value="33" />' >> config.xml
+        echo '  </platform>' >> config.xml
+        echo '</widget>' >> config.xml
         
         # Add Android platform
         cordova platform add android@12.0.0
