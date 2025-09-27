@@ -38,6 +38,14 @@ jobs:
         yes | sdkmanager --licenses || true
         sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
 
+    - name: Install Specific Gradle Version
+      run: |
+        wget https://services.gradle.org/distributions/gradle-7.6-bin.zip -P /tmp
+        unzip -d /opt /tmp/gradle-7.6-bin.zip
+        export PATH=/opt/gradle-7.6/bin:$PATH
+        echo "PATH=/opt/gradle-7.6/bin:$PATH" >> $GITHUB_ENV
+        gradle --version
+
     - name: Create Cordova Project
       run: |
         # Create Cordova project
@@ -56,13 +64,13 @@ jobs:
         echo '  <content src="index.html" />' >> config.xml
         echo '  <access origin="*" />' >> config.xml
         echo '  <allow-navigation href="*" />' >> config.xml
+        echo '  <preference name="GradleVersion" value="7.6" />' >> config.xml
         echo '  <platform name="android">' >> config.xml
         echo '    <preference name="android-minSdkVersion" value="23" />' >> config.xml
         echo '    <preference name="android-targetSdkVersion" value="33" />' >> config.xml
         echo '  </platform>' >> config.xml
         echo '</widget>' >> config.xml
-        <preference name="GradleVersion" value="7.6" />
-
+        
         # Show the created config.xml for debugging
         cat config.xml
 
@@ -72,6 +80,8 @@ jobs:
         java -version
         echo "Cordova version:"
         cordova --version
+        echo "Gradle version:"
+        gradle --version
         echo "Android SDK info:"
         sdkmanager --list | grep -E "platform-tools|platforms;android-33|build-tools;33.0.0"
         echo "Node version:"
@@ -89,19 +99,21 @@ jobs:
         echo "Trying Android platform 10.1.2..."
         cordova platform add android@10.1.2 --verbose
         
-        - name: Install Specific Gradle Version
-          run: |
-            wget https://services.gradle.org/distributions/gradle-7.6-bin.zip -P /tmp
-            unzip -d /opt /tmp/gradle-7.6-bin.zip
-            echo "export PATH=/opt/gradle-7.6/bin:$PATH" >> $GITHUB_ENV
-        - name: Configure Gradle Version for Cordova
-          run: |
-          cd MyApp
-            mkdir -p platforms/android/gradle/wrapper
-            echo "distributionUrl=https\\://services.gradle.org/distributions/gradle-7.6-bin.zip" > platforms/android/gradle/wrapper/gradle-wrapper.properties
-
         # Verify platform was added
         cordova platform ls
+
+    - name: Configure Gradle Version for Cordova
+      run: |
+        cd MyApp
+        if [ -d "platforms/android" ]; then
+          mkdir -p platforms/android/gradle/wrapper
+          echo "distributionUrl=https\\://services.gradle.org/distributions/gradle-7.6-bin.zip" > platforms/android/gradle/wrapper/gradle-wrapper.properties
+          cat platforms/android/gradle/wrapper/gradle-wrapper.properties
+        else
+          echo "Android platform directory not found!"
+          ls -la
+          exit 1
+        fi
 
     - name: Build Debug APK
       run: |
