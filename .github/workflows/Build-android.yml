@@ -43,7 +43,7 @@ jobs:
         fi
         
         # Create config.xml with minimum Android 6 (API level 23)
-        cat > config.xml << EOF
+        cat > config.xml << 'EOFCONFIG'
 <?xml version='1.0' encoding='utf-8'?>
 <widget id="com.example.myapp" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
     <name>My App</name>
@@ -59,7 +59,7 @@ jobs:
         <preference name="android-targetSdkVersion" value="33" />
     </platform>
 </widget>
-EOF
+EOFCONFIG
         
         # Add Android platform
         cordova platform add android@12.0.0
