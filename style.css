@@ -1,0 +1,4 @@
+body { font-family: sans-serif; text-align: center; background: #111; color: #fff; }
+video, canvas { max-width: 100%; border: 2px solid #444; border-radius: 12px; }
+.controls { margin-top: 10px; }
+#log { margin-top: 10px; font-size: 14px; }

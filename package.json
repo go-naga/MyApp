@@ -1,0 +1,7 @@
+{
+  "name": "cctv-cordova-offline",
+  "version": "1.0.0",
+  "description": "Offline CCTV Cordova App dengan TensorFlow.js dan COCO-SSD",
+  "dependencies": {},
+  "devDependencies": {}
+}
