@@ -31,7 +31,7 @@ jobs:
     - name: Install Cordova
       run: npm install -g cordova@11
 
-    - name: Create and Build Cordova Project
+    - name: Create Cordova Project
       run: |
         # Create Cordova project
         cordova create MyApp com.example.cctvcordova "CCTV Cordova Offline"
@@ -56,44 +56,44 @@ jobs:
         echo '    <preference name="android-targetSdkVersion" value="33" />' >> config.xml
         echo '  </platform>' >> config.xml
         echo '</widget>' >> config.xml
-        
-        # Add Android platform
+
+    - name: Add Android Platform
+      run: |
+        cd MyApp
         cordova platform add android@12.0.0
         
-        # Create gradle.properties to force Gradle version
+        # Check platform was added
+        cordova platform ls
+
+    - name: Check Directory Structure
+      run: |
+        cd MyApp
+        echo "MyApp directory structure:"
+        ls -la
+        
+        echo "Platforms directory:"
+        ls -la platforms || echo "Platforms directory not found"
+        
+        echo "Android directory:"
+        ls -la platforms/android || echo "Android directory not found"
+
+    - name: Build Debug APK
+      run: |
+        cd MyApp
+        # Force Gradle version
         mkdir -p platforms/android/gradle/wrapper
         echo "distributionUrl=https\\://services.gradle.org/distributions/gradle-8.3-all.zip" > platforms/android/gradle/wrapper/gradle-wrapper.properties
         
-        # Build APK
-        cordova build android --verbose
+        # Build debug APK only
+        cordova build android --debug --verbose
+        
+        # Check build results
+        echo "Build outputs:"
+        find platforms -type d -name "build" | xargs ls -la
 
-    - name: Debug APK Location
-      run: |
-        echo "Searching for APK files:"
-        find . -name "*.apk" -type f
-        
-        echo "Checking Android build output directory:"
-        ls -la MyApp/platforms/android/app/build/outputs/ || echo "Directory not found"
-        
-        # Create a directory for any found APKs
-        mkdir -p found-apks
-        
-        # Try to find and copy any APK files
-        find . -name "*.apk" -type f -exec cp {} found-apks/ \; || echo "No APK files to copy"
-        
-        echo "Contents of found-apks directory:"
-        ls -la found-apks || echo "found-apks directory is empty"
-
-    - name: Upload Found APKs
+    - name: Upload Project Structure
       uses: actions/upload-artifact@v4
       with:
-        name: android-apks
-        path: found-apks
-        if-no-files-found: warn
-
-    - name: Upload Build Outputs
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-outputs
-        path: MyApp/platforms/android/app/build/outputs
+        name: project-structure
+        path: MyApp
         if-no-files-found: warn
