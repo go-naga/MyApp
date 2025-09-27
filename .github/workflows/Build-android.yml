@@ -3,137 +3,54 @@ name: Build Cordova Android
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-    
-    - name: Set up JDK 8
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    # Set up JDK 17 for Android SDK tools
+    - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
-        distribution: 'temurin'
-        java-version: '8'
-    
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v2
-      
-    - name: Install Node.js 16
+        distribution: temurin
+        java-version: 17
+
+    - name: Install Node.js 20
       uses: actions/setup-node@v4
       with:
-        node-version: '16'
+        node-version: '20'
 
+    # Use the GitHub Actions provided Android SDK
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
     - name: Install Cordova
-      run: |
-        npm install -g cordova@10.0.0
-        cordova --version
+      run: npm install -g cordova@11
 
-    - name: Install Android SDK components
-      run: |
-        yes | sdkmanager --licenses || true
-        sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3"
+    # Switch to JDK 8 for Cordova build
+    - name: Set up JDK 8 for Cordova
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 8
 
-    - name: Create Cordova Project
-      run: |
-        # Create Cordova project
-        cordova create MyApp com.example.cctvcordova "CCTV Cordova Offline"
-        cd MyApp
-        
-        # Create a basic HTML file
-        echo '<html><body><h1>CCTV Cordova App</h1></body></html>' > www/index.html
-        
-        # Create config.xml with your configuration
-        echo '<?xml version="1.0" encoding="utf-8"?>' > config.xml
-        echo '<widget id="com.example.cctvcordova" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">' >> config.xml
-        echo '  <name>CCTV Cordova Offline</name>' >> config.xml
-        echo '  <description>Offline CCTV App dengan TensorFlow.js and COCO-SSD</description>' >> config.xml
-        echo '  <author email="you@example.com">Dev</author>' >> config.xml
-        echo '  <content src="index.html" />' >> config.xml
-        echo '  <access origin="*" />' >> config.xml
-        echo '  <allow-navigation href="*" />' >> config.xml
-        echo '  <preference name="GradleVersion" value="6.9" />' >> config.xml
-        echo '  <platform name="android">' >> config.xml
-        echo '    <preference name="android-minSdkVersion" value="22" />' >> config.xml
-        echo '    <preference name="android-targetSdkVersion" value="30" />' >> config.xml
-        echo '  </platform>' >> config.xml
-        echo '</widget>' >> config.xml
-        
-        # Show the created config.xml for debugging
-        cat config.xml
+    - name: Add Android platform
+      run: cordova platform add android@12.0.0
 
-    - name: Debug Environment
+    - name: Build APK
       run: |
-        echo "Java version:"
-        java -version
-        echo "Cordova version:"
-        cordova --version
-        echo "Android SDK info:"
-        sdkmanager --list | grep -E "platform-tools|platforms;android-30|build-tools;30.0.3"
-        echo "Node version:"
-        node --version
-        echo "NPM version:"
-        npm --version
+        export JAVA_HOME=$JAVA_HOME_8_X64
+        cordova build android --debug --verbose
 
-    - name: Add Android Platform with Debug
-      run: |
-        cd MyApp
-        # First check requirements
-        cordova requirements || true
-        
-        # Create package.json if it doesn't exist
-        if [ ! -f "package.json" ]; then
-          npm init -y
-        fi
-        
-        # Install cordova-android locally
-        npm install --save cordova-android@9.0.0
-        
-        # Try with a specific compatible version
-        echo "Trying Android platform 9.0.0..."
-        cordova platform add android@9.0.0 --verbose --fetch || {
-          echo "Failed to add Android platform. Debug info:"
-          ls -la
-          cat package.json
-          npm list
-          exit 1
-        }
-        
-        # Verify platform was added
-        ls -la platforms/
-        if [ ! -d "platforms/android" ]; then
-          echo "ERROR: Android platform directory not created!"
-          exit 1
-        fi
-        cordova platform ls
-
-    - name: Build Debug APK
-      run: |
-        cd MyApp
-        # Build using Cordova
-        cordova build android --debug --verbose || {
-          echo "Cordova build failed. Debug info:"
-          ls -la platforms/android || echo "Android platform directory not found"
-          exit 1
-        }
-        
-        # Check if APK was built
-        find . -name "*.apk"
-
-    - name: Find and Upload APK
-      run: |
-        mkdir -p apk-files
-        find MyApp -name "*.apk" -type f -exec cp {} apk-files/ \;
-        echo "APK files found:"
-        ls -la apk-files || echo "No APK files found"
-
-    - name: Upload APK Files
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: android-apk
-        path: apk-files
-        if-no-files-found: warn
+        path: |
+          platforms/android/app/build/outputs/apk/debug/*.apk
+          platforms/android/app/build/outputs/apk/release/*.apk
