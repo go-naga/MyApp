@@ -1,4 +1,4 @@
-name:  Build Cordova Android
+name: Build Cordova Android
 
 on:
   push:
@@ -66,16 +66,16 @@ jobs:
         
         # Build APK
         cordova build android --verbose
-     - name: Find and Upload APK
-       run: |
-            cd MyApp
-            find platforms -name "*.apk" -type f
-            mkdir -p apk-output
-            find platforms -name "*.apk" -type f -exec cp {} apk-output/ \;
+
+    - name: Find and Upload APK
+      run: |
+        cd MyApp
+        find platforms -name "*.apk" -type f
+        mkdir -p apk-output
+        find platforms -name "*.apk" -type f -exec cp {} apk-output/ \;
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: android-apk
-        path: MyApp/platforms/android/app/build/outputs/apk/**/*.apk
-Editing MyApp/.github/workflows/Build-android.yml at main · go-naga/MyApp 
+        path: MyApp/apk-output
