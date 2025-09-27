@@ -27,15 +27,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '16'
-        
-    - name: Cache Gradle packages
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: ${{ runner.os }}-gradle-
 
     - name: Install Cordova
       run: |
@@ -44,7 +35,7 @@ jobs:
 
     - name: Install Android SDK components
       run: |
-        yes | sdkmanager --licenses
+        yes | sdkmanager --licenses || true
         sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
 
     - name: Create Cordova Project
@@ -53,19 +44,14 @@ jobs:
         cordova create MyApp com.example.cctvcordova "CCTV Cordova Offline"
         cd MyApp
         
-        # Copy www files if they exist
-        if [ -d "../www" ]; then
-          cp -r ../www/* www/ || true
-        else
-          # Create a basic HTML file if no www content exists
-          echo '<html><body><h1>CCTV Cordova App</h1></body></html>' > www/index.html
-        fi
+        # Create a basic HTML file
+        echo '<html><body><h1>CCTV Cordova App</h1></body></html>' > www/index.html
         
-        # Create config.xml with your configuration 
+        # Create config.xml with your configuration
         echo '<?xml version="1.0" encoding="utf-8"?>' > config.xml
         echo '<widget id="com.example.cctvcordova" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">' >> config.xml
         echo '  <name>CCTV Cordova Offline</name>' >> config.xml
-        echo '  <description>Offline CCTV App dengan TensorFlow.js &amp; COCO-SSD</description>' >> config.xml
+        echo '  <description>Offline CCTV App dengan TensorFlow.js and COCO-SSD</description>' >> config.xml
         echo '  <author email="you@example.com">Dev</author>' >> config.xml
         echo '  <content src="index.html" />' >> config.xml
         echo '  <access origin="*" />' >> config.xml
@@ -76,66 +62,43 @@ jobs:
         echo '  </platform>' >> config.xml
         echo '</widget>' >> config.xml
         
-    - name: Check Cordova Requirements
+        # Show the created config.xml for debugging
+        cat config.xml
+
+    - name: Debug Environment
       run: |
-        cd MyApp
-        cordova requirements
+        echo "Java version:"
+        java -version
+        echo "Cordova version:"
+        cordova --version
+        echo "Android SDK info:"
+        sdkmanager --list | grep -E "platform-tools|platforms;android-33|build-tools;33.0.0"
+        echo "Node version:"
+        node --version
+        echo "NPM version:"
+        npm --version
 
     - name: Add Android Platform
       run: |
         cd MyApp
-        # Try multiple platform versions if needed
-        echo "Trying Android platform 11.0.0..."
-        cordova platform add android@11.0.0 --verbose || {
-          echo "Failed with 11.0.0, trying 10.1.2..."
-          cordova platform add android@10.1.2 --verbose || {
-            echo "Failed with 10.1.2, trying latest version..."
-            cordova platform add android --verbose || {
-              echo "All platform add attempts failed. Debug info:"
-              cordova requirements
-              exit 1
-            }
-          }
-        }
+        # First check requirements
+        cordova requirements || true
+        
+        # Try with a specific compatible version
+        echo "Trying Android platform 10.1.2..."
+        cordova platform add android@10.1.2 --verbose
         
         # Verify platform was added
         cordova platform ls
 
-    - name: Prepare Gradle Wrapper
-      run: |
-        cd MyApp
-        if [ -d "platforms/android" ]; then
-          cd platforms/android
-          # Use Gradle to generate the wrapper with specific version
-          gradle wrapper --gradle-version=7.6 --distribution-type=all
-          chmod +x gradlew
-        else
-          echo "Android platform directory not found!"
-          exit 1
-        fi
-
     - name: Build Debug APK
       run: |
         cd MyApp
-        # Build using Cordova first
-        cordova build android --debug --verbose || {
-          echo "Cordova build failed, trying direct Gradle build..."
-          cd platforms/android
-          ./gradlew assembleDebug --info
-        }
+        # Build using Cordova
+        cordova build android --debug --verbose
         
         # Check if APK was built
         find . -name "*.apk"
-
-    - name: Debug Info (on failure)
-      if: failure()
-      run: |
-        java -version
-        cordova --version
-        ls -la MyApp || echo "MyApp directory not found"
-        ls -la MyApp/platforms || echo "platforms directory not found"
-        ls -la MyApp/platforms/android || echo "android platform directory not found"
-        cat MyApp/config.xml || echo "config.xml not found"
 
     - name: Find and Upload APK
       run: |
@@ -149,11 +112,4 @@ jobs:
       with:
         name: android-apk
         path: apk-files
-        if-no-files-found: warn
-        
-    - name: Upload Build Outputs
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-outputs
-        path: MyApp/platforms/android/app/build/outputs
         if-no-files-found: warn
